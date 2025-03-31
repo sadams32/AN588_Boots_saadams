@@ -1,0 +1,210 @@
+---
+title: "Homework 5: Boots for Days!"
+format: html
+editor: visual
+toc: true
+toc-depth: 5
+---
+
+![](img/boot.png)
+
+## Context
+
+When we initially discussed the central limit theorem and confidence intervals, we showed how we could use bootstrapping to estimate standard errors and confidence intervals around certain parameter values, like the mean. Using bootstrapping, we could also do the same for estimating standard errors and CIs around regression parameters, such as 𝛽coefficients.
+
+## Load Packages
+
+```{r}
+library(curl)
+library(tidyverse)
+```
+
+## Load Data
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/refs/heads/master/AN588_Spring25/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(d)
+```
+
+## Task 1
+
+Using the “KamilarAndCooperData.csv” dataset, run a linear regression looking at log(HomeRange_km2) in relation to log(Body_mass_female_mean) and report your 𝛽 coeffiecients (slope and intercept).
+
+Prepare and model data:
+```{r}
+# filter out NA for relevant columns (HomeRange_km2 and Body_mass_female_mean)
+d <- d %>%
+  filter(!is.na(HomeRange_km2) & !is.na(Body_mass_female_mean))
+
+# mutate dataset d to have log of relevant variables
+d <- d %>%
+  mutate(log_HomeRange_km2 = log(HomeRange_km2), log_Body_mass_female_mean = log(Body_mass_female_mean))
+
+# make linear model with log(HomeRange_km2) in relation to log(Body_mass_female_mean)
+lm_model <- lm(data = d, log_HomeRange_km2 ~ log_Body_mass_female_mean)
+```
+
+Preview linear model results:
+```{r}
+summary(lm_model)
+```
+
+```{r}
+# write code to neatly pront out beta coefficients slope and intercept
+
+# also print out n = for bootstrap sampling
+cat("Intercept (β0):", coef(lm_model)[1], "\n") # "\n" = go to next line; intercept of linear model
+cat("Slope (β1):", coef(lm_model)[2], "\n") # slope of linear model
+cat("n =", nrow(d), "\n") # print the number of rows that could actually be used in this model (because we had to filter out NA entries)
+```
+//challenge// I tried initially to use print() to display the results above but it didn't work. I looked it up on stack exchange and saw  cat() is also used similarly. It seems to be working but I'm not sure what the difference is between them.
+
+## Task 2
+
+### Bootstrapping
+Then, use bootstrapping to sample from your data 1000 times with replacement, each time fitting the same model and calculating the same coefficients. This generates a sampling distribution for each 𝛽 coefficient.
+
+Set up parameters for bootstrapping:
+```{r}
+set.seed(1) # set seed 
+n_boot <- 1000 # number of bootstrap samples we will take
+n <- nrow(d) # sample size (# rows that have the HomeRange_km2 and Body_mass_female_mean)
+
+boot_coef_df <- data.frame(Intercept = rep(NA, n_boot), Slope = rep(NA, n_boot)) # create dataframe that will store the coefficients (slope and intercept)
+```
+
+Bootstrap loop:
+```{r}
+for (i in 1:n_boot) {
+  boot_index <- sample(1:n, size = n, replace = TRUE) # random sample from 1 to n rows; sampling with replacement; boot_index will be used to reference for sampling
+  
+  boot_data <- d[boot_index, ] # record the relevant index of the bootstrapped sample
+  
+  boot_model <- lm(log(HomeRange_km2) ~ log(Body_mass_female_mean), data = boot_data) # make model for bootstrapped data
+  
+  boot_coef_df$Intercept[i] <- coef(boot_model)[1] # store intercept
+  boot_coef_df$Slope[i] <- coef(boot_model)[2] # store slope
+}
+```
+
+Preview bootstrap:
+```{r}
+head(boot_coef_df) # preview dataframe of bootstrapped samples
+```
+
+### Standard Error Estimates and CIs of Bootstrap
+Estimate the standard error for each of your 𝛽 coefficients as the standard deviation of the sampling distribution from your bootstrap and determine the 95% CI for each of your 𝛽 coefficients based on the appropriate quantiles from your sampling distribution.
+
+Strandard error estimates:
+```{r}
+# estimate standard errors of $beta$ coefficients w/ standard deviation of bootstrapped sampling distribution
+boot_se_intercept <- sd(boot_coef_df$Intercept) # intercept estimate
+boot_se_slope <- sd(boot_coef_df$Slope) # slope estimate
+```
+
+95% CIs:
+```{r}
+# use quantile() in the range of 0.025 to 0.975 (the 95% confidence interval) to calculate CIs
+boot_ci_intercept <- quantile(boot_coef_df$Intercept, c(0.025, 0.975))
+boot_ci_slope <- quantile(boot_coef_df$Slope, c(0.025, 0.975)) 
+```
+//challenge// I'm confused if we are supposed to do some kind of check for the "appropriate quantiles" (based on how the question was posed)
+
+Print SEs and CIs for bootstrap distribution:
+```{r}
+# SEs
+cat("Bootstrap Standard Error Estimate for Intercept:", boot_se_intercept, "\n") # intercept SE estimate
+cat("Bootstrap Standard Error Estimate for Slope", boot_se_slope, "\n") # slope SE estimate
+
+# CIs
+cat("Bootstrap 95% CI for Intercept:", boot_ci_intercept[1], "to", boot_ci_intercept[2], "\n") # print 95% CI lower bound [1] to upper bound [2]; intercept CI
+cat("Bootstrap 95% CI for Slope:", boot_ci_slope[1], "to", boot_ci_slope[2], "\n") # slope CI
+```
+
+### How does the former compare to the SE estimated from your entire dataset using the formula for standard error implemented in lm()?
+
+```{r}
+lm_model_se <- summary(lm_model)$coef[,2] # extract SE from original sample model
+
+# print SEs for original sample
+cat("Original Sample Standard Error Estimate for Intercept:", lm_model_se[1], "\n") # intercept SE estimate
+cat("Original Sample Standard Error Estimate for Slope", lm_model_se[2], "\n") # slope SE estimate
+```
+The original sample's standard error was slightly higher, but very close, for both slope and intercept when compared to the bootstrap distribution SE estimate. That these values are so similar indicates that the assumptions made to perform a linear regression (like assuming normality or independence of observations) are valid and that the linear model is is accurately capturing the data we have given it.
+
+### How does the latter compare to the 95% CI estimated from your entire dataset?
+
+```{r}
+lm_model_ci <- confint(lm_model, level = 0.95) # extract 95% CI from original sample model
+
+# print 95% CIs for orginal sample
+cat("Original Sample CI for Intercept:", lm_model_ci[1,1], "to", lm_model_ci[1,2], "\n") # intercept CI
+cat("Original Sample CI for Slope:", lm_model_ci[2,1], "to", lm_model_ci[2,2], "\n") # slope CI
+```
+The 95% CIs are also very similar between the original sample and the boostrap distribution (neither is noticeably different in the range, or how narrow or wide that range is). Similar to the comparison with the SEs, this indicates that the linear model for the data is a good one and that the assumptions to make the linear model were valid.
+
+//challenge// Is there anything different to say about what similarity in the CIs versus SEs indicates?
+
+## Extra Credit
+
+Write a FUNCTION that takes as its arguments a dataframe, “d”, a linear model, “m” (as a character string, e.g., “logHR\~logBM”), a user-defined confidence interval level, “conf.level” (with default = 0.95), and a number of bootstrap replicates, “n” (with default = 1000). Your function should return a dataframe that includes: beta coefficient names; beta coefficients, standard errors, and upper and lower CI limits for the linear model based on your entire dataset; and mean beta coefficient estimates, SEs, and CI limits for those coefficients based on your bootstrap.
+
+```{r}
+extrafun <- function(d, m, conf.level = 0.95, n = 1000) {
+  
+# Original sample
+  # fit and summarize linear model
+  extra_lm_model <- lm(data = d, as.character(m)) # fit linear model
+  extra_lm_model_summary <- summary(extra_lm_model) # summarize model
+  
+  # beta coefficients and SEs
+  extra_lm_model_coef <- coef(extra_lm_model) # extract coefficients
+  extra_lm_model_se <- extra_lm_model_summary$coef[,2] # extras SEs
+  extra_lm_model_ci <- confint(extra_lm_model, level = conf.level) # extract CI
+  
+# Bootstrap distribution
+  # set up
+  n_row <- nrow(d) # sample size
+  extra_boot_coef_df <- data.frame(Intercept = rep(NA, n_boot), Slope = rep(NA, n)) # create dataframe that will store the coefficients (slope and intercept)
+  
+  # loop
+  for (i in 1:n) {
+  extra_boot_index <- sample(1:n_row, size = n_row, replace = TRUE) # random sample from 1 to n rows; sampling with replacement; boot_index will be used to reference for sampling
+  extra_boot_data <- d[extra_boot_index, ] # record the relevant index of the bootstrapped sample
+  extra_boot_model <- lm(as.character(m), data = extra_boot_data) # make model for bootstrapped data
+  extra_boot_coef_df$Intercept[i] <- coef(boot_model)[1] # store intercept
+  extra_boot_coef_df$Slope[i] <- coef(boot_model)[2] # store slope
+  }
+  
+  # beta coefficients and SEs
+  extra_boot_se <- sd(extra_boot_coef_df)
+  
+  # CIs (using quantiles instead of confint)
+  lower_quantile <- (1-conf.int) / 2 # calculate lower bound quantile of CI range
+  upper_quantile <- ((1-conf.int) / 2) + conf.level # calculate upper bound quantile of CI range
+  
+  extra_boot_ci_intercept <- quantile(extra_boot_coef_df$Intercept, c(lower_quantile, upper_quantile))
+  extra_boot_ci_slope <- quantile(extra_boot_coef_df$Slope, c(lower_quantile, upper_quantile))
+  
+# summarize all results in one dataframe
+  extra_results_df <- data.frame(
+    Beta_Coef_Name = names(extra_lm_model_coef),
+    Original_Intercept = extra_lm_model_coef[1],
+    Original_Slope = extra_lm_model_coef[2],
+    Original_CI_Lower = extra_lm_model_ci[, 1],
+    Original_CI_upper = extra_lm_model_ci[, 2],
+    Bootstrap_Intercept = extra_boot_coef_df$Intercept[i],
+    Bootstrap_Slope = extra_boot_coef_df$Slope[i],
+    Bootsrap_CI_Lower = ##,
+    Boostrap_CI_Upper = ###,
+  )
+
+  return(extra_results_df)
+}
+
+```
+
+## EXTRA Extra Credit
+
+Graph each beta value from the linear model and its corresponding mean value, lower CI and upper CI from a bootstrap as a function of number of bootstraps from 10 to 200 by 10s. HINT: the beta value from the linear model will be the same for all bootstraps and the mean beta value may not differ that much!
