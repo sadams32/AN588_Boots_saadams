@@ -1,0 +1,329 @@
+---
+title: "Homework 5: Boots for Days!"
+format: html
+editor: visual
+toc: true
+toc-depth: 5
+---
+
+![](img/boot.png)
+
+## Context
+
+When we initially discussed the central limit theorem and confidence intervals, we showed how we could use bootstrapping to estimate standard errors and confidence intervals around certain parameter values, like the mean. Using bootstrapping, we could also do the same for estimating standard errors and CIs around regression parameters, such as 𝛽coefficients.
+
+## Load Packages
+
+yongliang's comment: I appreciate that you load both curl and tidyverse. In my code I used read.csv() directly with a URL which is a bit simpler but using curl can also be a solid choice if you need additional control.
+
+```{r}
+library(curl)
+library(tidyverse)
+```
+
+## Load Data
+
+yongliang's comment: Your display of the first few rows with head(d) is great for ensuring the data loaded as expected.
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/refs/heads/master/AN588_Spring25/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(d)
+```
+
+## Task 1
+
+Using the “KamilarAndCooperData.csv” dataset, run a linear regression looking at log(HomeRange_km2) in relation to log(Body_mass_female_mean) and report your 𝛽 coeffiecients (slope and intercept).
+
+Prepare and model data:
+
+yongliang's comment: I really like how you used dplyr’s filter() to clean the data. This is similar to my approach with subsetting. Creating new columns for the log-transformed values is very clear and is similar to my approch. I directly use log inside the lm().
+
+```{r}
+# filter out NA for relevant columns (HomeRange_km2 and Body_mass_female_mean)
+d <- d %>%
+  filter(!is.na(HomeRange_km2) & !is.na(Body_mass_female_mean))
+
+# mutate dataset d to have log of relevant variables
+d <- d %>%
+  mutate(log_HomeRange_km2 = log(HomeRange_km2), log_Body_mass_female_mean = log(Body_mass_female_mean))
+
+# make linear model with log(HomeRange_km2) in relation to log(Body_mass_female_mean)
+lm_model <- lm(data = d, log_HomeRange_km2 ~ log_Body_mass_female_mean)
+```
+
+Preview linear model results:
+
+yongliang's comment: Your linear model runs smoothly and the summary() output provides a clear overview of the results. I also printed the beta coefficients in my code using cat() for clarity.
+
+```{r}
+summary(lm_model)
+```
+
+```{r}
+# write code to neatly print out beta coefficients slope and intercept
+
+# also print out n = for bootstrap sampling
+cat("Intercept (β0):", coef(lm_model)[1], "\n") # "\n" = go to next line; intercept of linear model
+cat("Slope (β1):", coef(lm_model)[2], "\n") # slope of linear model
+cat("n =", nrow(d), "\n") # print the number of rows that could actually be used in this model (because we had to filter out NA entries)
+```
+
+//challenge// I tried initially to use print() to display the results above but it didn't work. I looked it up on stack exchange and saw cat() is also used similarly. It seems to be working but I'm not sure what the difference is between them.
+
+## Task 2
+
+### Bootstrapping
+
+Then, use bootstrapping to sample from your data 1000 times with replacement, each time fitting the same model and calculating the same coefficients. This generates a sampling distribution for each 𝛽 coefficient.
+
+Set up parameters for bootstrapping:
+
+yongliang's comment: Your creation of a dedicated dataframe for storing bootstrap coefficients is clear. I did similar thing where I used a matrix to store these coefficients
+
+```{r}
+set.seed(1) # set seed 
+n_boot <- 1000 # number of bootstrap samples we will take
+n <- nrow(d) # sample size (# rows that have the HomeRange_km2 and Body_mass_female_mean)
+
+boot_coef_df <- data.frame(Intercept = rep(NA, n_boot), Slope = rep(NA, n_boot)) # create dataframe that will store the coefficients (slope and intercept)
+```
+
+Bootstrap loop:
+
+Yongliang's comment: your loop is really easy to follow!
+
+```{r}
+for (i in 1:n_boot) {
+  boot_index <- sample(1:n, size = n, replace = TRUE) # random sample from 1 to n rows; sampling with replacement; boot_index will be used to reference for sampling
+  
+  boot_data <- d[boot_index, ] # record the relevant index of the bootstrapped sample
+  
+  boot_model <- lm(log(HomeRange_km2) ~ log(Body_mass_female_mean), data = boot_data) # make model for bootstrapped data
+  
+  boot_coef_df$Intercept[i] <- coef(boot_model)[1] # store intercept
+  boot_coef_df$Slope[i] <- coef(boot_model)[2] # store slope
+}
+```
+
+Preview bootstrap:
+
+```{r}
+head(boot_coef_df) # preview dataframe of bootstrapped samples
+```
+
+### Standard Error Estimates and CIs of Bootstrap
+
+Estimate the standard error for each of your 𝛽 coefficients as the standard deviation of the sampling distribution from your bootstrap and determine the 95% CI for each of your 𝛽 coefficients based on the appropriate quantiles from your sampling distribution.
+
+Strandard error estimates:
+
+```{r}
+# estimate standard errors of $beta$ coefficients w/ standard deviation of bootstrapped sampling distribution
+boot_se_intercept <- sd(boot_coef_df$Intercept) # intercept estimate
+boot_se_slope <- sd(boot_coef_df$Slope) # slope estimate
+```
+
+95% CIs:
+
+```{r}
+# use quantile() in the range of 0.025 to 0.975 (the 95% confidence interval) to calculate CIs
+boot_ci_intercept <- quantile(boot_coef_df$Intercept, c(0.025, 0.975))
+boot_ci_slope <- quantile(boot_coef_df$Slope, c(0.025, 0.975)) 
+```
+
+//challenge// I'm confused if we are supposed to do some kind of check for the "appropriate quantiles" (based on how the question was posed)
+
+Print SEs and CIs for bootstrap distribution:
+
+```{r}
+# SEs
+cat("Bootstrap Standard Error Estimate for Intercept:", boot_se_intercept, "\n") # intercept SE estimate
+cat("Bootstrap Standard Error Estimate for Slope", boot_se_slope, "\n") # slope SE estimate
+
+# CIs
+cat("Bootstrap 95% CI for Intercept:", boot_ci_intercept[1], "to", boot_ci_intercept[2], "\n") # print 95% CI lower bound [1] to upper bound [2]; intercept CI
+cat("Bootstrap 95% CI for Slope:", boot_ci_slope[1], "to", boot_ci_slope[2], "\n") # slope CI
+```
+
+### How does the former compare to the SE estimated from your entire dataset using the formula for standard error implemented in lm()?
+
+Yongliang's comment: I reached similar conclusions in my homework, and this comparison is a really clear method to validate the results.
+
+```{r}
+lm_model_se <- summary(lm_model)$coef[,2] # extract SE from original sample model
+
+# print SEs for original sample
+cat("Original Sample Standard Error Estimate for Intercept:", lm_model_se[1], "\n") # intercept SE estimate
+cat("Original Sample Standard Error Estimate for Slope", lm_model_se[2], "\n") # slope SE estimate
+```
+
+The original sample's standard error was slightly higher, but very close, for both slope and intercept when compared to the bootstrap distribution SE estimate. That these values are so similar indicates that the assumptions made to perform a linear regression (like assuming normality or independence of observations) are valid and that the linear model is is accurately capturing the data we have given it.
+
+### How does the latter compare to the 95% CI estimated from your entire dataset?
+
+```{r}
+lm_model_ci <- confint(lm_model, level = 0.95) # extract 95% CI from original sample model
+
+# print 95% CIs for orginal sample
+cat("Original Sample CI for Intercept:", lm_model_ci[1,1], "to", lm_model_ci[1,2], "\n") # intercept CI
+cat("Original Sample CI for Slope:", lm_model_ci[2,1], "to", lm_model_ci[2,2], "\n") # slope CI
+```
+
+The 95% CIs are also very similar between the original sample and the boostrap distribution (neither is noticeably different in the range, or how narrow or wide that range is). Similar to the comparison with the SEs, this indicates that the linear model for the data is a good one and that the assumptions to make the linear model were valid.
+
+//challenge// Is there anything different to say about what similarity in the CIs versus SEs indicates?
+
+## Extra Credit
+
+Write a FUNCTION that takes as its arguments a dataframe, “d”, a linear model, “m” (as a character string, e.g., “logHR\~logBM”), a user-defined confidence interval level, “conf.level” (with default = 0.95), and a number of bootstrap replicates, “n” (with default = 1000). Your function should return a dataframe that includes: beta coefficient names; beta coefficients, standard errors, and upper and lower CI limits for the linear model based on your entire dataset; and mean beta coefficient estimates, SEs, and CI limits for those coefficients based on your bootstrap.
+
+Yongliang's comment: Nice work converting the model formula from a character string with as.formula(). I use a similar approach. Your function is well-structured and clear.
+
+```{r}
+extrafun <- function(d, m, conf.level = 0.95, n = 1000) {
+  
+# Original sample
+  # fit and summarize linear model
+  extra_lm_model <- lm(data = d, as.formula(m)) # fit linear model; I used as.formula for lm functions 
+  extra_lm_model_summary <- summary(extra_lm_model) # summarize model
+  
+  # beta coefficients and SEs
+  extra_lm_model_coef <- coef(extra_lm_model) # extract coefficients
+  extra_lm_model_se <- extra_lm_model_summary$coef[,2] # extras SEs
+  extra_lm_model_ci <- confint(extra_lm_model, level = conf.level) # extract CI
+  
+# bootstrap distribution
+  # setup
+  n_row <- nrow(d) # sample size
+  extra_boot_coef_df <- data.frame(Intercept = numeric(n), Slope = numeric(n)) # create dataframe that will store the coefficients (slope and intercept)
+  
+  # loop
+  for (i in 1:n) {
+  extra_boot_index <- sample(1:n_row, size = n_row, replace = TRUE) # random sample from 1 to n rows; sampling with replacement; boot_index will be used to reference for sampling
+  extra_boot_data <- d[extra_boot_index, ] # record the relevant index of the bootstrapped sample
+  extra_boot_model <- lm(data = extra_boot_data, as.formula(m)) # make model for bootstrapped data
+  extra_boot_coef_df$Intercept[i] <- coef(extra_boot_model)[1] # store intercept
+  extra_boot_coef_df$Slope[i] <- coef(extra_boot_model)[2] # store slope
+  }
+  
+  # beta coefficients and SEs
+  extra_boot_estimate_intercept <- mean(extra_boot_coef_df$Intercept) # intercept estimate
+  extra_boot_estimate_slope <- mean(extra_boot_coef_df$Slope) # slope estimate
+
+  extra_boot_se_intercept <- sd(extra_boot_coef_df$Intercept) # intercept SE estimate
+  extra_boot_se_slope <- sd(extra_boot_coef_df$Slope) # slope SE estimate
+  
+  # CIs (use quantiles instead of confint)
+  lower_quantile <- (1-conf.level) / 2 # calculate lower bound quantile of CI range
+  upper_quantile <- ((1-conf.level) / 2) + conf.level # calculate upper bound quantile of CI range
+  
+  extra_boot_ci_intercept <- quantile(extra_boot_coef_df$Intercept, c(lower_quantile, upper_quantile)) # store intercept CI limits
+  extra_boot_ci_slope <- quantile(extra_boot_coef_df$Slope, c(lower_quantile, upper_quantile)) # store slope CI limits
+  
+# summarize all results in one dataframe
+  extra_results_df <- data.frame(
+    Beta_Coef_Name = names(extra_lm_model_coef),
+    Original_Coef_Estimate = extra_lm_model_coef,
+    Original_SE = extra_lm_model_se,
+    Original_CI_Lower = extra_lm_model_ci[, 1],
+    Original_CI_upper = extra_lm_model_ci[, 2],
+    Bootstrap_coef_estimate = c(extra_boot_estimate_intercept, extra_boot_estimate_slope),
+    Bootstrap_SE = c(extra_boot_se_intercept, extra_boot_se_slope),
+    Bootstrap_CI_Lower = c(extra_boot_ci_intercept[1], extra_boot_ci_slope[1]),
+    Bootstrap_CI_Upper = c(extra_boot_ci_intercept[2], extra_boot_ci_slope[2])
+  )
+
+  return(extra_results_df)
+}
+
+```
+
+//challenge// My function wouldn't work with as.factor -\> stackoverflow said in a similar thread to use as.formula...I'm not confident this is correct though.
+
+### Function Test w/ lm_model (from above)
+
+```{r}
+test_results <- extrafun(d, lm_model)
+
+print(test_results) # view results
+```
+
+These results all look pretty similar to what I got from doing Task 1/2!
+
+## EXTRA Extra Credit
+
+Graph each beta value from the linear model and its corresponding mean value, lower CI and upper CI from a bootstrap as a function of number of bootstraps from 10 to 200 by 10s. HINT: the beta value from the linear model will be the same for all bootstraps and the mean beta value may not differ that much!
+
+```{r}
+boot_n <- seq(from = 10, to = 200, by = 10) # set number of bootstraps + increase by 10
+
+# make empty lists to store our results + numeric() for each result
+original_intercept <- numeric(length(boot_n))
+original_slope <- numeric(length(boot_n))
+boot_intercept <- numeric(length(boot_n))
+boot_slope <- numeric(length(boot_n))
+boot_ci_lower_intercept <- numeric(length(boot_n))
+boot_ci_upper_intercept <- numeric(length(boot_n))
+boot_ci_lower_slope <- numeric(length(boot_n))
+boot_ci_upper_slope <- numeric(length(boot_n))
+
+# Bootstrap loop
+for (i in 1:length(boot_n)) {
+  n <- boot_n[i] # set number of bootstraps
+  temp_results <- extrafun(d, lm_model, n=n) # call extrafun function
+  
+  # store original coefs
+  original_intercept[i] <- temp_results$Original_Coef_Estimate[1]
+  original_slope[i] <- temp_results$Original_Coef_Estimate[2]
+  
+  # store CIs and coefs for bootstrap
+  boot_intercept[i] <- temp_results$Bootstrap_coef_estimate[1]
+  boot_slope[i] <- temp_results$Bootstrap_coef_estimate[2]
+  
+  boot_ci_lower_intercept[i] <- temp_results$Bootstrap_CI_Lower[1]
+  boot_ci_upper_intercept[i] <- temp_results$Bootstrap_CI_Upper[1]
+  boot_ci_lower_slope[i] <- temp_results$Bootstrap_CI_Lower[2]
+  boot_ci_upper_slope[i] <- temp_results$Bootstrap_CI_Upper[2]
+}
+
+# intercept data
+intercept_data <- data.frame(
+  n = boot_n,
+  Coef = "Intercept",
+  Original = original_intercept,
+  Bootstrap = boot_intercept,
+  CI_Lower = boot_ci_lower_intercept,
+  CI_Upper = boot_ci_upper_intercept
+)
+
+# slope data
+slope_data <- data.frame(
+  n = boot_n,
+  Coef = "Slope",
+  Original = original_slope,
+  Bootstrap = boot_slope,
+  CI_Lower = boot_ci_lower_slope,
+  CI_Upper = boot_ci_upper_slope
+)
+
+plot_data <- rbind(intercept_data, slope_data) # combine slope and intercept dataframes
+
+head(plot_data) # check plot data
+
+```
+
+# Plot Data
+
+```{r}
+ggplot(plot_data, aes(x = n, color = Coef)) + 
+  geom_line(aes(y = Bootstrap), size = 1) +
+  geom_point(aes(y = Bootstrap), size = 2) +
+  geom_errorbar(aes(ymin = CI_Lower, ymax = CI_Upper), width = 0.2) + 
+  labs(title = "Bootstrap Estimates with CIs", x = "# Bootstraps", y = "Coef. Estimate")
+            
+```
+
+//challenge// I feel like my code looks crazy - I have variables all of the place and I feel like there has to be a better way to write this.
+
+Yongliang's final comment: I think your code is super solid overall and it is really clear and well documented. I have found several places where i did things similar to yours and I found that reassuring that we are on the right track.
