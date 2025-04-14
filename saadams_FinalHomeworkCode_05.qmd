@@ -2,6 +2,7 @@
 title: "Homework 5: Boots for Days!"
 format: html
 editor: visual
+theme: minty
 toc: true
 toc-depth: 5
 ---
@@ -61,8 +62,6 @@ cat("Slope (β1):", coef(lm_model)[2], "\n") # slope of linear model
 cat("n =", nrow(d), "\n") # print the number of rows that could actually be used in this model (because we had to filter out NA entries)
 ```
 
-//challenge// I tried initially to use print() to display the results above but it didn't work. I looked it up on stack exchange and saw cat() is also used similarly. It seems to be working but I'm not sure what the difference is between them.
-
 ## Task 2
 
 ### Bootstrapping
@@ -120,8 +119,6 @@ boot_ci_intercept <- quantile(boot_coef_df$Intercept, c(0.025, 0.975))
 boot_ci_slope <- quantile(boot_coef_df$Slope, c(0.025, 0.975)) 
 ```
 
-//challenge// I'm confused if we are supposed to do some kind of check for the "appropriate quantiles" (based on how the question was posed)
-
 Print SEs and CIs for bootstrap distribution:
 
 ```{r}
@@ -157,8 +154,6 @@ cat("Original Sample CI for Slope:", lm_model_ci[2,1], "to", lm_model_ci[2,2], "
 ```
 
 The 95% CIs are also very similar between the original sample and the boostrap distribution (neither is noticeably different in the range, or how narrow or wide that range is). Similar to the comparison with the SEs, this indicates that the linear model for the data is a good one and that the assumptions to make the linear model were valid.
-
-//challenge// Is there anything different to say about what similarity in the CIs versus SEs indicates?
 
 ## Extra Credit
 
@@ -222,8 +217,6 @@ extrafun <- function(d, m, conf.level = 0.95, n = 1000) {
 }
 
 ```
-
-//challenge// My function wouldn't work with as.factor -\> stackoverflow said in a similar thread to use as.formula...I'm not confident this is correct though.
 
 ### Function Test w/ lm_model (from above)
 
@@ -307,8 +300,6 @@ ggplot(plot_data, aes(x = n, color = Coef)) +
   labs(title = "Bootstrap Estimates with CIs", x = "# Bootstraps", y = "Coef. Estimate")
             
 ```
-
-//challenge// I feel like my code looks crazy - I have variables all of the place and I feel like there has to be a better way to write this.
 
 ## Notes
 

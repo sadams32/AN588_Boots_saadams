@@ -303,7 +303,6 @@ F-statistic: 149.1 on 1 and 135 DF,  p-value: &lt; 2.2e-16</code></pre>
 <pre><code>n = 137 </code></pre>
 </div>
 </div>
-<p>//challenge// I tried initially to use print() to display the results above but it didn’t work. I looked it up on stack exchange and saw cat() is also used similarly. It seems to be working but I’m not sure what the difference is between them.</p>
 </section>
 <section id="task-2" class="level2">
 <h2 class="anchored" data-anchor-id="task-2">Task 2</h2>
@@ -360,7 +359,6 @@ F-statistic: 149.1 on 1 and 135 DF,  p-value: &lt; 2.2e-16</code></pre>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>boot_ci_intercept <span class="ot">&lt;-</span> <span class="fu">quantile</span>(boot_coef_df<span class="sc">$</span>Intercept, <span class="fu">c</span>(<span class="fl">0.025</span>, <span class="fl">0.975</span>))</span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>boot_ci_slope <span class="ot">&lt;-</span> <span class="fu">quantile</span>(boot_coef_df<span class="sc">$</span>Slope, <span class="fu">c</span>(<span class="fl">0.025</span>, <span class="fl">0.975</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>//challenge// I’m confused if we are supposed to do some kind of check for the “appropriate quantiles” (based on how the question was posed)</p>
 <p>Print SEs and CIs for bootstrap distribution:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># SEs</span></span>
@@ -416,7 +414,6 @@ F-statistic: 149.1 on 1 and 135 DF,  p-value: &lt; 2.2e-16</code></pre>
 </div>
 </div>
 <p>The 95% CIs are also very similar between the original sample and the boostrap distribution (neither is noticeably different in the range, or how narrow or wide that range is). Similar to the comparison with the SEs, this indicates that the linear model for the data is a good one and that the assumptions to make the linear model were valid.</p>
-<p>//challenge// Is there anything different to say about what similarity in the CIs versus SEs indicates?</p>
 </section>
 </section>
 <section id="extra-credit" class="level2">
@@ -479,7 +476,6 @@ F-statistic: 149.1 on 1 and 135 DF,  p-value: &lt; 2.2e-16</code></pre>
 <span id="cb39-54"><a href="#cb39-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(extra_results_df)</span>
 <span id="cb39-55"><a href="#cb39-55" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>//challenge// My function wouldn’t work with as.factor -&gt; stackoverflow said in a similar thread to use as.formula…I’m not confident this is correct though.</p>
 <section id="function-test-w-lm_model-from-above" class="level3">
 <h3 class="anchored" data-anchor-id="function-test-w-lm_model-from-above">Function Test w/ lm_model (from above)</h3>
 <div class="cell">
@@ -592,7 +588,6 @@ log_Body_mass_female_mean          0.8988777           1.189885</code></pre>
 </div>
 </div>
 </div>
-<p>//challenge// I feel like my code looks crazy - I have variables all of the place and I feel like there has to be a better way to write this.</p>
 </section>
 </section>
 <section id="notes" class="level2">
